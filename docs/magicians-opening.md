@@ -4,6 +4,10 @@ This file contains the current forum-opening copy for the proposed `Risk Signali
 
 Use the post below as the default `EthMagicians` topic body.
 
+Published topic:
+
+- https://ethereum-magicians.org/t/draft-erc-risk-signaling-and-response-interface/28106
+
 ## Final Paste-Ready Post
 
 ```text
@@ -37,13 +41,10 @@ The feedback I would most value at this stage is:
 3. whether `adjudicator` trust and latency should remain fully implementation-defined in V1, or need a stronger common framing for consumers;
 4. whether `riskType` taxonomy and structured evidence guidance should remain extensions rather than Core requirements in a first version.
 
+Draft:
+- https://github.com/tabilabs/erc-risk-signaling/blob/main/docs/erc-draft.md
+
 Reference PoC:
 - Repository: https://github.com/tabilabs/erc-risk-signaling
 - Suggested reviewer path: README -> docs/reviewer-demo.md -> docs/spec-map.md -> docs/submission-pack.md
-```
-
-If you also want to expose a public draft link in the forum topic, add one line immediately before `Reference PoC`:
-
-```text
-- Draft: https://github.com/tabilabs/erc-risk-signaling/blob/main/docs/erc-draft.md
 ```

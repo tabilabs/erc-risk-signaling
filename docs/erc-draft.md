@@ -5,6 +5,10 @@ Type: Standards Track: ERC
 Created: 2026-03-30  
 Requires: ERC-165
 
+Discussion thread:
+
+- https://ethereum-magicians.org/t/draft-erc-risk-signaling-and-response-interface/28106
+
 ## Abstract
 
 This ERC defines a minimal interface layer for machine-readable risk signaling, confirmation, and protocol response discovery.

@@ -54,6 +54,10 @@ If you want the public-facing ERC discussion materials instead of only the runna
 3. [docs/reviewer-demo.md](docs/reviewer-demo.md)
 4. [docs/spec-map.md](docs/spec-map.md)
 
+Discussion thread:
+
+- https://ethereum-magicians.org/t/draft-erc-risk-signaling-and-response-interface/28106
+
 For local development:
 
 ```bash
