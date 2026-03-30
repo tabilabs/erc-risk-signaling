@@ -1,4 +1,4 @@
-// SPDX-License-Identifier: MIT
+// SPDX-License-Identifier: CC0-1.0
 pragma solidity ^0.8.28;
 
 import {Test} from "forge-std/Test.sol";
@@ -44,13 +44,15 @@ contract RiskStateLensTest is Test {
         vault.deposit(100e6, user);
     }
 
-    function testLensDistinguishesConfirmedFromExecuted() public {
+    function testLensDistinguishesConfirmedFromExecutionRecord() public {
         bytes32 reportId = _raiseAndConfirm(address(vault));
 
         RiskStateLens.Snapshot memory beforeExecution = lens.snapshot(address(registry), address(vault), reportId);
         assertEq(uint256(beforeExecution.registryStatus), uint256(IRiskRegistry.Status.Confirmed));
         assertEq(beforeExecution.target, address(vault));
+        assertEq(beforeExecution.targetType, RiskResponseCodes.TARGET_TYPE_VAULT);
         assertEq(beforeExecution.riskType, RiskResponseCodes.RISK_DEPEG);
+        assertFalse(beforeExecution.hasExecutionRecord);
         assertFalse(beforeExecution.isEmergencyActive);
         assertEq(beforeExecution.activeReportId, bytes32(0));
         assertEq(beforeExecution.restrictionIds.length, 0);
@@ -59,7 +61,8 @@ contract RiskStateLensTest is Test {
         executor.trigger(address(vault), address(registry), reportId);
 
         RiskStateLens.Snapshot memory afterExecution = lens.snapshot(address(registry), address(vault), reportId);
-        assertEq(uint256(afterExecution.registryStatus), uint256(IRiskRegistry.Status.Executed));
+        assertEq(uint256(afterExecution.registryStatus), uint256(IRiskRegistry.Status.Confirmed));
+        assertTrue(afterExecution.hasExecutionRecord);
         assertTrue(afterExecution.isEmergencyActive);
         assertEq(afterExecution.activeReportId, reportId);
         assertEq(afterExecution.restrictionIds.length, 1);
@@ -75,7 +78,8 @@ contract RiskStateLensTest is Test {
         vault.resolveLocalEmergency("peg restored locally");
 
         RiskStateLens.Snapshot memory afterLocalRecovery = lens.snapshot(address(registry), address(vault), reportId);
-        assertEq(uint256(afterLocalRecovery.registryStatus), uint256(IRiskRegistry.Status.Executed));
+        assertEq(uint256(afterLocalRecovery.registryStatus), uint256(IRiskRegistry.Status.Confirmed));
+        assertTrue(afterLocalRecovery.hasExecutionRecord);
         assertFalse(afterLocalRecovery.isEmergencyActive);
         assertEq(afterLocalRecovery.activeReportId, bytes32(0));
         assertEq(afterLocalRecovery.restrictionIds.length, 0);
@@ -87,7 +91,12 @@ contract RiskStateLensTest is Test {
 
         vm.prank(whitehat);
         reportId = registry.raiseSignal{value: 0.1 ether}(
-            target, RiskResponseCodes.RISK_DEPEG, 3, bytes32(0), abi.encodePacked("evidence:slow-depeg")
+            target,
+            RiskResponseCodes.TARGET_TYPE_VAULT,
+            RiskResponseCodes.RISK_DEPEG,
+            3,
+            bytes32(0),
+            abi.encodePacked("evidence:slow-depeg")
         );
 
         vm.prank(admin);

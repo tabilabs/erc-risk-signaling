@@ -1,4 +1,4 @@
-// SPDX-License-Identifier: MIT
+// SPDX-License-Identifier: CC0-1.0
 pragma solidity ^0.8.28;
 
 import {Test} from "forge-std/Test.sol";
@@ -109,7 +109,8 @@ contract AggregatorRoutingTest is Test {
             consumerLens.decision(address(registry), address(riskyVault), reportId);
         RiskAwareConsumerLens.Decision memory executedRouterDecision =
             router.getRouteDecision(address(registry), address(riskyVault), reportId);
-        assertEq(uint256(signalAfterExecution.status), uint256(IRiskRegistry.Status.Executed));
+        assertEq(uint256(signalAfterExecution.status), uint256(IRiskRegistry.Status.Confirmed));
+        assertTrue(registry.getExecution(reportId).recorded);
         assertTrue(executedDecision.shouldSkipVault);
         assertTrue(executedDecision.shouldBlockNewDeposit);
         assertTrue(executedDecision.shouldAllowExit);
@@ -148,6 +149,7 @@ contract AggregatorRoutingTest is Test {
         vm.prank(whitehat);
         bytes32 rogueReportId = rogueRegistry.raiseSignal{value: 0.1 ether}(
             address(riskyVault),
+            RiskResponseCodes.TARGET_TYPE_VAULT,
             RiskResponseCodes.RISK_DEPEG,
             3,
             bytes32(0),
@@ -155,7 +157,11 @@ contract AggregatorRoutingTest is Test {
         );
 
         vm.prank(admin);
-        rogueRegistry.resolveSignal(rogueReportId, IRiskRegistry.Status.Confirmed, keccak256("rogue-confirmed"));
+        rogueRegistry.resolveSignal(
+            rogueReportId,
+            IRiskRegistry.Status.Confirmed,
+            IRiskRegistry.ResolutionMetadata({adjudicator: admin, resolutionHash: keccak256("rogue-confirmed")})
+        );
 
         address[] memory vaults = new address[](2);
         vaults[0] = address(riskyVault);
@@ -222,7 +228,12 @@ contract AggregatorRoutingTest is Test {
 
         vm.prank(whitehat);
         reportId = registry.raiseSignal{value: 0.1 ether}(
-            target, RiskResponseCodes.RISK_DEPEG, 3, bytes32(0), abi.encodePacked("evidence:slow-depeg")
+            target,
+            RiskResponseCodes.TARGET_TYPE_VAULT,
+            RiskResponseCodes.RISK_DEPEG,
+            3,
+            bytes32(0),
+            abi.encodePacked("evidence:slow-depeg")
         );
 
         vm.prank(admin);

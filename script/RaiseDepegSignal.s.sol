@@ -1,4 +1,4 @@
-// SPDX-License-Identifier: MIT
+// SPDX-License-Identifier: CC0-1.0
 pragma solidity ^0.8.28;
 
 import {console2} from "forge-std/console2.sol";
@@ -14,6 +14,7 @@ contract RaiseDepegSignal is Script {
         uint256 privateKey = vm.envUint("PRIVATE_KEY");
         address registryAddress = vm.envAddress("REGISTRY");
         address target = vm.envAddress("TARGET");
+        bytes32 targetType = vm.envOr("TARGET_TYPE", RiskResponseCodes.TARGET_TYPE_VAULT);
         uint256 severity = vm.envOr("SEVERITY", uint256(3));
         bytes32 dependencyRef = vm.envOr("DEPENDENCY_REF", bytes32(0));
         string memory evidenceText = vm.envOr("EVIDENCE", string("evidence:slow-depeg"));
@@ -31,11 +32,13 @@ contract RaiseDepegSignal is Script {
 
         vm.startBroadcast(privateKey);
         reportId = registry.raiseSignal{value: bond}(
-            target, RiskResponseCodes.RISK_DEPEG, severity8, dependencyRef, bytes(evidenceText)
+            target, targetType, RiskResponseCodes.RISK_DEPEG, severity8, dependencyRef, bytes(evidenceText)
         );
         vm.stopBroadcast();
 
         console2.log("target", target);
+        console2.log("targetType");
+        console2.logBytes32(targetType);
         console2.log("bond", bond);
         console2.log("severity", severity);
         console2.log("riskType");

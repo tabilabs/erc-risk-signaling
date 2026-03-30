@@ -1,4 +1,4 @@
-// SPDX-License-Identifier: MIT
+// SPDX-License-Identifier: CC0-1.0
 pragma solidity ^0.8.28;
 
 import {console2} from "forge-std/console2.sol";
@@ -35,8 +35,11 @@ contract ReadRiskSnapshot is Script {
         console2.log("registryStatus", uint256(snapshot.registryStatus));
         console2.log("registryStatusLabel", statusLabel(snapshot.registryStatus));
         console2.log("target", snapshot.target);
+        console2.log("targetType");
+        console2.logBytes32(snapshot.targetType);
         console2.log("riskType");
         console2.logBytes32(snapshot.riskType);
+        console2.log("hasExecutionRecord", snapshot.hasExecutionRecord);
         console2.log("isEmergencyActive", snapshot.isEmergencyActive);
         console2.log("activeReportId");
         console2.logBytes32(snapshot.activeReportId);

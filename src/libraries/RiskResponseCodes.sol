@@ -1,9 +1,10 @@
-// SPDX-License-Identifier: MIT
+// SPDX-License-Identifier: CC0-1.0
 pragma solidity ^0.8.28;
 
 import {IRiskRegistry} from "../interfaces/IRiskRegistry.sol";
 
 library RiskResponseCodes {
+    bytes32 internal constant TARGET_TYPE_VAULT = keccak256("vault");
     bytes32 internal constant RISK_DEPEG = keccak256("RISK_DEPEG");
     bytes32 internal constant ACTION_PAUSE_DEPOSIT = keccak256("ACTION_PAUSE_DEPOSIT");
     bytes32 internal constant RESTRICTION_PAUSE_DEPOSIT = keccak256("PAUSE_DEPOSIT");
@@ -28,7 +29,6 @@ library RiskResponseCodes {
         if (status == IRiskRegistry.Status.Confirmed) return "Confirmed";
         if (status == IRiskRegistry.Status.Rejected) return "Rejected";
         if (status == IRiskRegistry.Status.Expired) return "Expired";
-        if (status == IRiskRegistry.Status.Executed) return "Executed";
         if (status == IRiskRegistry.Status.Resolved) return "Resolved";
         return "Unknown";
     }

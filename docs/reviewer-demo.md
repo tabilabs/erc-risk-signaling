@@ -6,9 +6,9 @@ The goal is not to explain the full RFC. The goal is to reproduce these five sta
 
 1. `Normal`
 2. `Submitted`
-3. `Confirmed but not Executed`
-4. `Executed + PAUSE_DEPOSIT`
-5. `LocalRecovery after Executed`
+3. `Confirmed without execution record`
+4. `Confirmed + PAUSE_DEPOSIT active`
+5. `LocalRecovery after execution`
 
 It also shows:
 
@@ -125,7 +125,7 @@ Expected output:
 2. `reasonCodeLabel = NONE`
 3. `shouldSkipVault = false`
 
-## Step 5: Confirm Without Execution (`Confirmed but not Executed`)
+## Step 5: Confirm Without Execution (`Confirmed without execution record`)
 
 ```bash
 export TRIGGER_EXECUTION=false
@@ -162,7 +162,7 @@ Important: in the trust-anchor model, `CONFIRMED_NOT_EXECUTED` can mean either:
 
 That is why current restrictions must still be derived from the responder state.
 
-## Step 6: Execute the Emergency Action (`Executed + PAUSE_DEPOSIT`)
+## Step 6: Execute the Emergency Action (`Confirmed + PAUSE_DEPOSIT active`)
 
 ```bash
 export TRIGGER_EXECUTION=true
@@ -188,7 +188,7 @@ Expected output:
 4. `routerCanRouteExit = true`
 5. `selectedDepositRoute = SAFE_VAULT`
 
-## Step 7: Trigger Local Recovery (`LocalRecovery after Executed`)
+## Step 7: Trigger Local Recovery (`LocalRecovery after execution`)
 
 ```bash
 forge script script/ResolveLocalEmergency.s.sol:ResolveLocalEmergency \
@@ -212,7 +212,7 @@ Expected output:
 
 This is the clean recovery path: the responder no longer exposes an active restriction and the active report id has been cleared.
 
-If you see `EXECUTED_STATE_MISMATCH` instead, registry history and responder state no longer line up cleanly. The script should not guess that recovery has already happened.
+If you see `EXECUTED_STATE_MISMATCH` instead, execution history and responder state no longer line up cleanly. The script should not guess that recovery has already happened.
 
 ## Expected Event Sequence
 
@@ -233,7 +233,7 @@ In this PoC, the `resultHash` carried by `SignalExecutionRecorded` and `Emergenc
 
 Meaning:
 
-- the registry says execution happened;
+- the registry still exposes a confirmed report with recorded execution history;
 - the responder no longer exposes the same state implied by that execution fact.
 
 Interpretation:

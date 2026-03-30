@@ -1,4 +1,4 @@
-// SPDX-License-Identifier: MIT
+// SPDX-License-Identifier: CC0-1.0
 pragma solidity ^0.8.28;
 
 import {IRiskRegistry} from "./interfaces/IRiskRegistry.sol";
@@ -74,12 +74,24 @@ contract RiskAwareConsumerLens {
 
         if (state.registryStatus == IRiskRegistry.Status.Confirmed) {
             result.shouldWarn = true;
+            if (!state.hasExecutionRecord) {
+                result.decisionLevel = LEVEL_WARNING;
+                result.reasonCode = REASON_CONFIRMED_NOT_EXECUTED;
+                return result;
+            }
+
+            if (!state.isEmergencyActive && state.activeReportId == bytes32(0) && state.restrictionIds.length == 0) {
+                result.decisionLevel = LEVEL_RECOVERED_HISTORY;
+                result.reasonCode = REASON_LOCAL_RECOVERY_WITH_HISTORY;
+                return result;
+            }
+
             result.decisionLevel = LEVEL_WARNING;
-            result.reasonCode = REASON_CONFIRMED_NOT_EXECUTED;
+            result.reasonCode = REASON_EXECUTED_STATE_MISMATCH;
             return result;
         }
 
-        if (state.registryStatus == IRiskRegistry.Status.Executed) {
+        if (state.registryStatus == IRiskRegistry.Status.Resolved && state.hasExecutionRecord) {
             result.shouldWarn = true;
             if (!state.isEmergencyActive && state.activeReportId == bytes32(0) && state.restrictionIds.length == 0) {
                 result.decisionLevel = LEVEL_RECOVERED_HISTORY;

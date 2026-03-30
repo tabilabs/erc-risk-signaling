@@ -1,4 +1,4 @@
-// SPDX-License-Identifier: MIT
+// SPDX-License-Identifier: CC0-1.0
 pragma solidity ^0.8.28;
 
 import {Test} from "forge-std/Test.sol";
@@ -118,11 +118,20 @@ contract RiskAwareConsumerLensTest is Test {
 
         vm.prank(whitehat);
         bytes32 reportId = registry.raiseSignal{value: 0.1 ether}(
-            address(vault), RiskResponseCodes.RISK_DEPEG, 3, bytes32(0), abi.encodePacked("evidence:under-review")
+            address(vault),
+            RiskResponseCodes.TARGET_TYPE_VAULT,
+            RiskResponseCodes.RISK_DEPEG,
+            3,
+            bytes32(0),
+            abi.encodePacked("evidence:under-review")
         );
 
         vm.prank(address(adjudicator));
-        registry.resolveSignal(reportId, IRiskRegistry.Status.UnderReview, keccak256("under-review"));
+        registry.resolveSignal(
+            reportId,
+            IRiskRegistry.Status.UnderReview,
+            IRiskRegistry.ResolutionMetadata({adjudicator: address(adjudicator), resolutionHash: keccak256("under-review")})
+        );
 
         RiskAwareConsumerLens.Decision memory decision =
             consumerLens.decision(address(registry), address(vault), reportId);
@@ -233,11 +242,20 @@ contract RiskAwareConsumerLensTest is Test {
 
         vm.prank(whitehat);
         bytes32 rogueReportId = rogueRegistry.raiseSignal{value: 0.1 ether}(
-            address(vault), RiskResponseCodes.RISK_DEPEG, 3, bytes32(0), abi.encodePacked("evidence:rogue-registry")
+            address(vault),
+            RiskResponseCodes.TARGET_TYPE_VAULT,
+            RiskResponseCodes.RISK_DEPEG,
+            3,
+            bytes32(0),
+            abi.encodePacked("evidence:rogue-registry")
         );
 
         vm.prank(admin);
-        rogueRegistry.resolveSignal(rogueReportId, IRiskRegistry.Status.Confirmed, keccak256("rogue-confirmed"));
+        rogueRegistry.resolveSignal(
+            rogueReportId,
+            IRiskRegistry.Status.Confirmed,
+            IRiskRegistry.ResolutionMetadata({adjudicator: admin, resolutionHash: keccak256("rogue-confirmed")})
+        );
 
         RiskAwareConsumerLens.Decision memory decision =
             consumerLens.decision(address(rogueRegistry), address(vault), rogueReportId);
@@ -257,7 +275,12 @@ contract RiskAwareConsumerLensTest is Test {
 
         vm.prank(whitehat);
         reportId = registry.raiseSignal{value: 0.1 ether}(
-            target, RiskResponseCodes.RISK_DEPEG, 3, bytes32(0), abi.encodePacked("evidence:slow-depeg")
+            target,
+            RiskResponseCodes.TARGET_TYPE_VAULT,
+            RiskResponseCodes.RISK_DEPEG,
+            3,
+            bytes32(0),
+            abi.encodePacked("evidence:slow-depeg")
         );
 
         vm.prank(admin);

@@ -1,4 +1,4 @@
-// SPDX-License-Identifier: MIT
+// SPDX-License-Identifier: CC0-1.0
 pragma solidity ^0.8.28;
 
 import {Test} from "forge-std/Test.sol";
@@ -66,6 +66,7 @@ contract ScriptGuardRailsTest is Test {
         _setEnv("PRIVATE_KEY", vm.toString(uint256(1)));
         _setEnv("REGISTRY", vm.toString(address(registry)));
         _setEnv("TARGET", vm.toString(address(vault)));
+        _setEnv("TARGET_TYPE", vm.toString(RiskResponseCodes.TARGET_TYPE_VAULT));
         _setEnv("SEVERITY", vm.toString(uint256(256)));
 
         RaiseDepegSignal script = new RaiseDepegSignal();
@@ -98,7 +99,7 @@ contract ScriptGuardRailsTest is Test {
         ReadRiskSnapshot script = new ReadRiskSnapshot();
 
         assertEq(script.statusLabel(IRiskRegistry.Status.Submitted), "Submitted");
-        assertEq(script.statusLabel(IRiskRegistry.Status.Executed), "Executed");
+        assertEq(script.statusLabel(IRiskRegistry.Status.Resolved), "Resolved");
         assertEq(script.decisionLevelLabel(0), "NORMAL");
         assertEq(script.decisionLevelLabel(2), "BLOCK_NEW_DEPOSIT");
         assertEq(script.reasonLabel(REASON_NONE), "NONE");
@@ -133,7 +134,12 @@ contract ScriptGuardRailsTest is Test {
 
         vm.prank(whitehat);
         reportId = registry.raiseSignal{value: 0.1 ether}(
-            target, RiskResponseCodes.RISK_DEPEG, 3, bytes32(0), abi.encodePacked("evidence:script-guard")
+            target,
+            RiskResponseCodes.TARGET_TYPE_VAULT,
+            RiskResponseCodes.RISK_DEPEG,
+            3,
+            bytes32(0),
+            abi.encodePacked("evidence:script-guard")
         );
 
         vm.prank(admin);

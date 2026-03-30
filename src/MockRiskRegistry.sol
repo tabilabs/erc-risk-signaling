@@ -1,4 +1,4 @@
-// SPDX-License-Identifier: MIT
+// SPDX-License-Identifier: CC0-1.0
 pragma solidity ^0.8.28;
 
 import {Ownable} from "@openzeppelin/contracts/access/Ownable.sol";
@@ -10,12 +10,15 @@ contract MockRiskRegistry is Ownable, IRiskRegistry {
     uint256 public nextNonce;
 
     mapping(bytes32 => Signal) private signals;
+    mapping(bytes32 => ResolutionMetadata) private resolutions;
+    mapping(bytes32 => ExecutionRecord) private executions;
 
     error BondTooLow(uint256 provided, uint256 requiredBond);
     error SignalNotFound(bytes32 reportId);
     error InvalidFinalStatus(Status status);
     error InvalidSourceStatus(Status status);
     error InvalidExecutionStatus(Status status);
+    error ExecutionAlreadyRecorded(bytes32 reportId);
     error UnauthorizedExecutionReporter(address caller, address expectedTarget);
 
     constructor(uint256 requiredBondFloor, address initialOwner) Ownable(initialOwner) {
@@ -24,6 +27,7 @@ contract MockRiskRegistry is Ownable, IRiskRegistry {
 
     function raiseSignal(
         address target,
+        bytes32 targetType,
         bytes32 riskType,
         uint8 severity,
         bytes32 dependencyRef,
@@ -40,6 +44,7 @@ contract MockRiskRegistry is Ownable, IRiskRegistry {
         Signal storage signal = signals[reportId];
         signal.producer = msg.sender;
         signal.target = target;
+        signal.targetType = targetType;
         signal.riskType = riskType;
         signal.severity = severity;
         signal.dependencyRef = dependencyRef;
@@ -47,10 +52,13 @@ contract MockRiskRegistry is Ownable, IRiskRegistry {
         signal.bond = msg.value;
         signal.status = Status.Submitted;
 
-        emit SignalRaised(reportId, msg.sender, target, riskType, severity, dependencyRef, msg.value);
+        emit SignalRaised(reportId, msg.sender, target, targetType, riskType, severity, dependencyRef, msg.value);
     }
 
-    function resolveSignal(bytes32 reportId, Status finalStatus, bytes32 resolutionHash) external onlyOwner {
+    function resolveSignal(bytes32 reportId, Status finalStatus, ResolutionMetadata calldata resolution)
+        external
+        onlyOwner
+    {
         Signal storage signal = signals[reportId];
         if (signal.target == address(0)) {
             revert SignalNotFound(reportId);
@@ -73,10 +81,9 @@ contract MockRiskRegistry is Ownable, IRiskRegistry {
         }
 
         signal.status = finalStatus;
-        signal.adjudicator = msg.sender;
-        signal.resolutionHash = resolutionHash;
+        resolutions[reportId] = resolution;
 
-        emit SignalResolved(reportId, finalStatus, msg.sender, resolutionHash);
+        emit SignalResolved(reportId, signal.target, finalStatus, resolution.adjudicator, resolution.resolutionHash);
     }
 
     function recordExecution(
@@ -96,13 +103,30 @@ contract MockRiskRegistry is Ownable, IRiskRegistry {
         if (signal.status != Status.Confirmed) {
             revert InvalidExecutionStatus(signal.status);
         }
+        if (executions[reportId].recorded) {
+            revert ExecutionAlreadyRecorded(reportId);
+        }
 
-        signal.status = Status.Executed;
+        executions[reportId] = ExecutionRecord({
+            recorded: true,
+            executor: executor,
+            actionId: actionId,
+            restrictionId: restrictionId,
+            resultHash: resultHash
+        });
 
         emit SignalExecutionRecorded(reportId, signal.target, executor, actionId, restrictionId, resultHash);
     }
 
     function getSignal(bytes32 reportId) external view returns (Signal memory signal) {
         return signals[reportId];
+    }
+
+    function getResolution(bytes32 reportId) external view returns (ResolutionMetadata memory resolution) {
+        return resolutions[reportId];
+    }
+
+    function getExecution(bytes32 reportId) external view returns (ExecutionRecord memory execution) {
+        return executions[reportId];
     }
 }

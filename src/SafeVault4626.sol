@@ -1,4 +1,4 @@
-// SPDX-License-Identifier: MIT
+// SPDX-License-Identifier: CC0-1.0
 pragma solidity ^0.8.28;
 
 import {ERC4626} from "@openzeppelin/contracts/token/ERC20/extensions/ERC4626.sol";
@@ -43,6 +43,11 @@ contract SafeVault4626 is ERC4626, Ownable, ERC165, IProtocolResponder {
         trustedRiskRegistry = newTrustedRegistry;
 
         emit TrustedRiskRegistryUpdated(msg.sender, previousRegistry, newTrustedRegistry);
+    }
+
+    function getSupportedActions() external pure returns (bytes32[] memory actionIds) {
+        actionIds = new bytes32[](1);
+        actionIds[0] = RiskResponseCodes.ACTION_PAUSE_DEPOSIT;
     }
 
     function getActiveRestrictions() external view returns (bytes32[] memory restrictionIds) {

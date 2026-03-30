@@ -1,4 +1,4 @@
-// SPDX-License-Identifier: MIT
+// SPDX-License-Identifier: CC0-1.0
 pragma solidity ^0.8.28;
 
 import {IERC165} from "@openzeppelin/contracts/utils/introspection/IERC165.sol";
@@ -16,8 +16,9 @@ import {RiskResponseCodes} from "../src/libraries/RiskResponseCodes.sol";
 contract RiskResponseFlowTest is Test {
     event SignalResolved(
         bytes32 indexed reportId,
+        address indexed target,
         IRiskRegistry.Status indexed status,
-        address indexed adjudicator,
+        address adjudicator,
         bytes32 resolutionHash
     );
     event SignalExecutionRecorded(
@@ -122,15 +123,21 @@ contract RiskResponseFlowTest is Test {
         (bool emergencyActiveAfterTrigger, bytes32 activeReportAfterTrigger) = vault.emergencyStatus();
         bytes32[] memory restrictions = vault.getActiveRestrictions();
         IRiskRegistry.Signal memory executedSignal = registry.getSignal(reportId);
+        IRiskRegistry.ExecutionRecord memory executionRecord = registry.getExecution(reportId);
         assertTrue(emergencyActiveAfterTrigger);
         assertEq(activeReportAfterTrigger, reportId);
-        assertEq(uint256(executedSignal.status), uint256(IRiskRegistry.Status.Executed));
+        assertEq(uint256(executedSignal.status), uint256(IRiskRegistry.Status.Confirmed));
+        assertTrue(executionRecord.recorded);
+        assertEq(executionRecord.executor, address(executor));
         assertEq(restrictions.length, 1);
         assertEq(restrictions[0], RiskResponseCodes.RESTRICTION_PAUSE_DEPOSIT);
         assertEq(vault.maxDeposit(bob), 0);
         assertGt(vault.maxWithdraw(alice), 0);
         assertTrue(vault.supportsInterface(type(IProtocolResponder).interfaceId));
         assertTrue(vault.supportsInterface(type(IERC165).interfaceId));
+        bytes32[] memory supportedActions = vault.getSupportedActions();
+        assertEq(supportedActions.length, 1);
+        assertEq(supportedActions[0], RiskResponseCodes.ACTION_PAUSE_DEPOSIT);
 
         vm.prank(bob);
         vm.expectRevert();
@@ -150,11 +157,20 @@ contract RiskResponseFlowTest is Test {
         vm.deal(whitehat, 1 ether);
         vm.prank(whitehat);
         bytes32 rogueReportId = rogueRegistry.raiseSignal{value: 0.1 ether}(
-            address(vault), RiskResponseCodes.RISK_DEPEG, 3, bytes32(0), abi.encodePacked("evidence:rogue-registry")
+            address(vault),
+            RiskResponseCodes.TARGET_TYPE_VAULT,
+            RiskResponseCodes.RISK_DEPEG,
+            3,
+            bytes32(0),
+            abi.encodePacked("evidence:rogue-registry")
         );
 
         vm.prank(admin);
-        rogueRegistry.resolveSignal(rogueReportId, IRiskRegistry.Status.Confirmed, keccak256("rogue-confirmed"));
+        rogueRegistry.resolveSignal(
+            rogueReportId,
+            IRiskRegistry.Status.Confirmed,
+            IRiskRegistry.ResolutionMetadata({adjudicator: admin, resolutionHash: keccak256("rogue-confirmed")})
+        );
 
         vm.expectRevert(
             abi.encodeWithSelector(SafeVault4626.UntrustedRegistry.selector, address(rogueRegistry), address(registry))
@@ -194,7 +210,12 @@ contract RiskResponseFlowTest is Test {
         vm.prank(whitehat);
         vm.expectRevert(abi.encodeWithSelector(MockRiskRegistry.BondTooLow.selector, 0.05 ether, registry.BOND_FLOOR()));
         registry.raiseSignal{value: 0.05 ether}(
-            address(vault), RiskResponseCodes.RISK_DEPEG, 3, bytes32(0), abi.encodePacked("evidence:too-cheap")
+            address(vault),
+            RiskResponseCodes.TARGET_TYPE_VAULT,
+            RiskResponseCodes.RISK_DEPEG,
+            3,
+            bytes32(0),
+            abi.encodePacked("evidence:too-cheap")
         );
     }
 
@@ -204,14 +225,23 @@ contract RiskResponseFlowTest is Test {
 
         vm.prank(whitehat);
         bytes32 reportId = directRegistry.raiseSignal{value: 0.1 ether}(
-            address(vault), RiskResponseCodes.RISK_DEPEG, 3, bytes32(0), abi.encodePacked("evidence:invalid-status")
+            address(vault),
+            RiskResponseCodes.TARGET_TYPE_VAULT,
+            RiskResponseCodes.RISK_DEPEG,
+            3,
+            bytes32(0),
+            abi.encodePacked("evidence:invalid-status")
         );
 
         vm.prank(admin);
         vm.expectRevert(
-            abi.encodeWithSelector(MockRiskRegistry.InvalidFinalStatus.selector, IRiskRegistry.Status.Executed)
+            abi.encodeWithSelector(MockRiskRegistry.InvalidFinalStatus.selector, IRiskRegistry.Status.None)
         );
-        directRegistry.resolveSignal(reportId, IRiskRegistry.Status.Executed, keccak256("invalid:executed"));
+        directRegistry.resolveSignal(
+            reportId,
+            IRiskRegistry.Status.None,
+            IRiskRegistry.ResolutionMetadata({adjudicator: admin, resolutionHash: keccak256("invalid:none")})
+        );
     }
 
     function testResolveSignalAllowsUnderReviewToConfirmed() public {
@@ -220,17 +250,30 @@ contract RiskResponseFlowTest is Test {
 
         vm.prank(whitehat);
         bytes32 reportId = directRegistry.raiseSignal{value: 0.1 ether}(
-            address(vault), RiskResponseCodes.RISK_DEPEG, 3, bytes32(0), abi.encodePacked("evidence:review-window")
+            address(vault),
+            RiskResponseCodes.TARGET_TYPE_VAULT,
+            RiskResponseCodes.RISK_DEPEG,
+            3,
+            bytes32(0),
+            abi.encodePacked("evidence:review-window")
         );
 
         vm.prank(admin);
-        directRegistry.resolveSignal(reportId, IRiskRegistry.Status.UnderReview, keccak256("under-review"));
+        directRegistry.resolveSignal(
+            reportId,
+            IRiskRegistry.Status.UnderReview,
+            IRiskRegistry.ResolutionMetadata({adjudicator: admin, resolutionHash: keccak256("under-review")})
+        );
 
         IRiskRegistry.Signal memory underReviewSignal = directRegistry.getSignal(reportId);
         assertEq(uint256(underReviewSignal.status), uint256(IRiskRegistry.Status.UnderReview));
 
         vm.prank(admin);
-        directRegistry.resolveSignal(reportId, IRiskRegistry.Status.Confirmed, keccak256("confirmed-after-review"));
+        directRegistry.resolveSignal(
+            reportId,
+            IRiskRegistry.Status.Confirmed,
+            IRiskRegistry.ResolutionMetadata({adjudicator: admin, resolutionHash: keccak256("confirmed-after-review")})
+        );
 
         IRiskRegistry.Signal memory confirmedSignal = directRegistry.getSignal(reportId);
         assertEq(uint256(confirmedSignal.status), uint256(IRiskRegistry.Status.Confirmed));
@@ -242,17 +285,30 @@ contract RiskResponseFlowTest is Test {
 
         vm.prank(whitehat);
         bytes32 reportId = directRegistry.raiseSignal{value: 0.1 ether}(
-            address(vault), RiskResponseCodes.RISK_DEPEG, 3, bytes32(0), abi.encodePacked("evidence:confirmed-twice")
+            address(vault),
+            RiskResponseCodes.TARGET_TYPE_VAULT,
+            RiskResponseCodes.RISK_DEPEG,
+            3,
+            bytes32(0),
+            abi.encodePacked("evidence:confirmed-twice")
         );
 
         vm.prank(admin);
-        directRegistry.resolveSignal(reportId, IRiskRegistry.Status.Confirmed, keccak256("confirmed-once"));
+        directRegistry.resolveSignal(
+            reportId,
+            IRiskRegistry.Status.Confirmed,
+            IRiskRegistry.ResolutionMetadata({adjudicator: admin, resolutionHash: keccak256("confirmed-once")})
+        );
 
         vm.prank(admin);
         vm.expectRevert(
             abi.encodeWithSelector(MockRiskRegistry.InvalidSourceStatus.selector, IRiskRegistry.Status.Confirmed)
         );
-        directRegistry.resolveSignal(reportId, IRiskRegistry.Status.Resolved, keccak256("resolved-after-confirmed"));
+        directRegistry.resolveSignal(
+            reportId,
+            IRiskRegistry.Status.Resolved,
+            IRiskRegistry.ResolutionMetadata({adjudicator: admin, resolutionHash: keccak256("resolved-after-confirmed")})
+        );
     }
 
     function testRecordExecutionRevertsForUnauthorizedReporter() public {
@@ -315,12 +371,13 @@ contract RiskResponseFlowTest is Test {
 
         bytes32 resolutionHash = keccak256("confirmed:slow-depeg");
         vm.expectEmit(address(registry));
-        emit SignalResolved(reportId, IRiskRegistry.Status.Confirmed, address(adjudicator), resolutionHash);
+        emit SignalResolved(reportId, target, IRiskRegistry.Status.Confirmed, address(adjudicator), resolutionHash);
         vm.prank(admin);
         adjudicator.confirm(reportId, resolutionHash);
 
         IRiskRegistry.Signal memory signal = registry.getSignal(reportId);
         assertEq(uint256(signal.status), uint256(IRiskRegistry.Status.Confirmed));
+        assertEq(signal.targetType, RiskResponseCodes.TARGET_TYPE_VAULT);
     }
 
     function _raiseOnly(address target) internal returns (bytes32 reportId) {
@@ -328,7 +385,12 @@ contract RiskResponseFlowTest is Test {
 
         vm.prank(whitehat);
         reportId = registry.raiseSignal{value: 0.1 ether}(
-            target, RiskResponseCodes.RISK_DEPEG, 3, bytes32(0), abi.encodePacked("evidence:slow-depeg")
+            target,
+            RiskResponseCodes.TARGET_TYPE_VAULT,
+            RiskResponseCodes.RISK_DEPEG,
+            3,
+            bytes32(0),
+            abi.encodePacked("evidence:slow-depeg")
         );
     }
 

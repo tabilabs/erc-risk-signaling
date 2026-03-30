@@ -17,6 +17,7 @@ The repository is intentionally small. It does not attempt to standardize keeper
 ## What This PoC Tries to Prove
 
 - `Submitted` and `UnderReview` are observable states, not automatic lock triggers.
+- `Confirmed` remains the core registry state even after execution; execution history is exposed separately.
 - The protocol responder is the source of truth for current restrictions.
 - Registry state and responder state remain distinct under asynchronous execution.
 - Consumers can derive routing decisions without treating raw registry status as equivalent to live protocol restrictions.
@@ -34,11 +35,15 @@ The repository is intentionally small. It does not attempt to standardize keeper
 - `test/`
   - Flow, routing, state-lens, consumer-lens, and script guard-rail tests.
 - `docs/`
-  - Reviewer-focused demo instructions.
+  - Reviewer-focused demo instructions, draft-to-PoC mapping notes, and submission-pack guidance.
 
 ## Quickstart
 
-If you only want the shortest reviewer path, start with [docs/reviewer-demo.md](docs/reviewer-demo.md).
+If you only want the shortest reviewer path, start with:
+
+1. [docs/reviewer-demo.md](docs/reviewer-demo.md)
+2. [docs/spec-map.md](docs/spec-map.md)
+3. [docs/submission-pack.md](docs/submission-pack.md)
 
 For local development:
 
@@ -54,7 +59,7 @@ The repository ignores `.env` and `.env.local` so local demo keys do not get com
 ### Registry Layer
 
 - `MockRiskRegistry`
-  - Stores signals and status transitions.
+  - Stores signals, confirmation metadata, and execution records without promoting execution into the core status enum.
 - `MockAdjudicator`
   - Confirms a signal by moving it into `Confirmed`.
 
@@ -66,6 +71,7 @@ This layer explains what was reported and what was confirmed.
   - `ERC-4626` vault with protocol-local emergency controls.
   - Tracks processed reports for replay protection.
   - Requires a `trustedRiskRegistry` for emergency execution.
+  - Exposes both `getSupportedActions()` and `getActiveRestrictions()`.
 
 This layer explains what restrictions are actually active right now.
 
@@ -109,6 +115,10 @@ The main demo path is:
 
 The full step-by-step commands are in [docs/reviewer-demo.md](docs/reviewer-demo.md).
 
+If you want the exact boundary between current draft semantics and PoC-only instrumentation, read [docs/spec-map.md](docs/spec-map.md).
+
+If you want to know how this repository should later be reduced into submission-safe attachment material, read [docs/submission-pack.md](docs/submission-pack.md).
+
 ## Expected Consumer Semantics
 
 ### `Submitted` or `UnderReview`
@@ -117,25 +127,25 @@ The full step-by-step commands are in [docs/reviewer-demo.md](docs/reviewer-demo
 - do not block new deposits automatically;
 - do not affect exits.
 
-### `Confirmed but not Executed`
+### `Confirmed without execution record`
 
 - warn the consumer;
 - do not claim the protocol is already restricted;
 - do not reroute away yet.
 
-### `Executed + PAUSE_DEPOSIT`
+### `Confirmed + execution record + PAUSE_DEPOSIT`
 
 - block new deposits;
 - continue allowing exits;
 - reroute deposits to a safe alternative when available.
 
-### `LocalRecovery after Executed`
+### `LocalRecovery after execution`
 
 - clear the active restriction surface;
 - keep historical risk context observable;
 - allow routing to resume.
 
-### `Executed but State Mismatch`
+### `Confirmed with execution record but state mismatch`
 
 - warn instead of pretending recovery;
 - treat as a diagnostic state until responder state is inspected directly.
@@ -181,4 +191,4 @@ This repository is a PoC for one narrow design problem. It is not:
 
 ## License
 
-Released under the [MIT License](LICENSE).
+Released under [CC0 1.0 Universal](LICENSE).
