@@ -45,6 +45,15 @@ If you only want the shortest reviewer path, start with:
 2. [docs/spec-map.md](docs/spec-map.md)
 3. [docs/submission-pack.md](docs/submission-pack.md)
 
+## Public Draft Materials
+
+If you want the public-facing ERC discussion materials instead of only the runnable PoC, start with:
+
+1. [docs/erc-draft.md](docs/erc-draft.md)
+2. [docs/magicians-opening.md](docs/magicians-opening.md)
+3. [docs/reviewer-demo.md](docs/reviewer-demo.md)
+4. [docs/spec-map.md](docs/spec-map.md)
+
 For local development:
 
 ```bash
