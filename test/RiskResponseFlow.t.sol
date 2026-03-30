@@ -6,6 +6,8 @@ import {Test} from "forge-std/Test.sol";
 
 import {IRiskRegistry} from "../src/interfaces/IRiskRegistry.sol";
 import {IProtocolResponder} from "../src/interfaces/IProtocolResponder.sol";
+import {IProtocolResponseExecutor} from "../src/interfaces/IProtocolResponseExecutor.sol";
+import {IProtocolResponseHelper} from "../src/interfaces/IProtocolResponseHelper.sol";
 import {MockAdjudicator} from "../src/MockAdjudicator.sol";
 import {MockExecutor} from "../src/MockExecutor.sol";
 import {MockRiskRegistry} from "../src/MockRiskRegistry.sol";
@@ -134,6 +136,8 @@ contract RiskResponseFlowTest is Test {
         assertEq(vault.maxDeposit(bob), 0);
         assertGt(vault.maxWithdraw(alice), 0);
         assertTrue(vault.supportsInterface(type(IProtocolResponder).interfaceId));
+        assertTrue(vault.supportsInterface(type(IProtocolResponseExecutor).interfaceId));
+        assertTrue(vault.supportsInterface(type(IProtocolResponseHelper).interfaceId));
         assertTrue(vault.supportsInterface(type(IERC165).interfaceId));
         bytes32[] memory supportedActions = vault.getSupportedActions();
         assertEq(supportedActions.length, 1);
@@ -148,6 +152,20 @@ contract RiskResponseFlowTest is Test {
 
         assertEq(asset.balanceOf(alice), 1_000_000e6 - 100e6 + 40e6);
         assertEq(asset.balanceOf(address(vault)), 60e6);
+    }
+
+    function testSubmittedSignalDoesNotActivateRestrictions() public {
+        bytes32 reportId = _raiseOnly(address(vault));
+
+        IRiskRegistry.Signal memory signal = registry.getSignal(reportId);
+        bytes32[] memory restrictions = vault.getActiveRestrictions();
+        (bool emergencyActive, bytes32 activeReportId) = vault.emergencyStatus();
+
+        assertEq(uint256(signal.status), uint256(IRiskRegistry.Status.Submitted));
+        assertEq(restrictions.length, 0);
+        assertFalse(emergencyActive);
+        assertEq(activeReportId, bytes32(0));
+        assertEq(vault.maxDeposit(alice), type(uint256).max);
     }
 
     function testTrustedRiskRegistryIsReadableAndRejectsUntrustedRegistry() public {
@@ -279,7 +297,7 @@ contract RiskResponseFlowTest is Test {
         assertEq(uint256(confirmedSignal.status), uint256(IRiskRegistry.Status.Confirmed));
     }
 
-    function testResolveSignalRevertsWhenReResolvingConfirmedSignal() public {
+    function testResolveSignalAllowsConfirmedToResolved() public {
         MockRiskRegistry directRegistry = new MockRiskRegistry(0.1 ether, admin);
         vm.deal(whitehat, 1 ether);
 
@@ -301,13 +319,45 @@ contract RiskResponseFlowTest is Test {
         );
 
         vm.prank(admin);
-        vm.expectRevert(
-            abi.encodeWithSelector(MockRiskRegistry.InvalidSourceStatus.selector, IRiskRegistry.Status.Confirmed)
-        );
         directRegistry.resolveSignal(
             reportId,
             IRiskRegistry.Status.Resolved,
             IRiskRegistry.ResolutionMetadata({adjudicator: admin, resolutionHash: keccak256("resolved-after-confirmed")})
+        );
+
+        IRiskRegistry.Signal memory resolvedSignal = directRegistry.getSignal(reportId);
+        assertEq(uint256(resolvedSignal.status), uint256(IRiskRegistry.Status.Resolved));
+    }
+
+    function testResolveSignalRevertsWhenReResolvingResolvedSignal() public {
+        MockRiskRegistry directRegistry = new MockRiskRegistry(0.1 ether, admin);
+        vm.deal(whitehat, 1 ether);
+
+        vm.prank(whitehat);
+        bytes32 reportId = directRegistry.raiseSignal{value: 0.1 ether}(
+            address(vault),
+            RiskResponseCodes.TARGET_TYPE_VAULT,
+            RiskResponseCodes.RISK_DEPEG,
+            3,
+            bytes32(0),
+            abi.encodePacked("evidence:resolved-twice")
+        );
+
+        vm.prank(admin);
+        directRegistry.resolveSignal(
+            reportId,
+            IRiskRegistry.Status.Resolved,
+            IRiskRegistry.ResolutionMetadata({adjudicator: admin, resolutionHash: keccak256("resolved-once")})
+        );
+
+        vm.prank(admin);
+        vm.expectRevert(
+            abi.encodeWithSelector(MockRiskRegistry.InvalidSourceStatus.selector, IRiskRegistry.Status.Resolved)
+        );
+        directRegistry.resolveSignal(
+            reportId,
+            IRiskRegistry.Status.Resolved,
+            IRiskRegistry.ResolutionMetadata({adjudicator: admin, resolutionHash: keccak256("resolved-twice")})
         );
     }
 

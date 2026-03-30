@@ -28,4 +28,12 @@ contract MockAdjudicator is Ownable {
             IRiskRegistry.ResolutionMetadata({adjudicator: address(this), resolutionHash: resolutionHash})
         );
     }
+
+    function resolve(bytes32 reportId, bytes32 resolutionHash) external onlyOwner {
+        REGISTRY.resolveSignal(
+            reportId,
+            IRiskRegistry.Status.Resolved,
+            IRiskRegistry.ResolutionMetadata({adjudicator: address(this), resolutionHash: resolutionHash})
+        );
+    }
 }

@@ -1,7 +1,7 @@
 // SPDX-License-Identifier: CC0-1.0
 pragma solidity ^0.8.28;
 
-import {IProtocolResponder} from "./interfaces/IProtocolResponder.sol";
+import {IProtocolResponseExecutor} from "./interfaces/IProtocolResponseExecutor.sol";
 
 contract MockExecutor {
     event ExecutionTriggered(
@@ -9,7 +9,7 @@ contract MockExecutor {
     );
 
     function trigger(address responder, address registry, bytes32 reportId) external {
-        IProtocolResponder(responder).triggerEmergencyAction(registry, reportId);
+        IProtocolResponseExecutor(responder).triggerEmergencyAction(registry, reportId);
         emit ExecutionTriggered(responder, registry, reportId, msg.sender);
     }
 }

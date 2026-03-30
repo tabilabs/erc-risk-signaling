@@ -2,19 +2,31 @@
 
 This runbook is for reviewers who want to validate the PoC quickly on a local Anvil chain.
 
-The goal is not to explain the full RFC. The goal is to reproduce these five states:
+The goal is not to explain the full RFC. The goal is to reproduce these six states:
 
 1. `Normal`
 2. `Submitted`
 3. `Confirmed without execution record`
 4. `Confirmed + PAUSE_DEPOSIT active`
 5. `LocalRecovery after execution`
+6. `Resolved at registry layer`
 
 It also shows:
 
 1. how `RiskStateLens` and `RiskAwareConsumerLens` interpret the same signal differently across stages;
 2. how `MockAggregatorRouter` consumes the consumer decision directly;
 3. how deposits can be blocked while exits remain available.
+
+Core responder surface in this PoC:
+
+1. `getSupportedActions()`
+2. `getActiveRestrictions()`
+
+Optional helper surface used only for diagnostics in the runbook:
+
+1. `emergencyStatus()`
+2. `trustedRiskRegistry()`
+3. `resolveLocalEmergency(...)`
 
 ## Prerequisites
 
@@ -211,8 +223,38 @@ Expected output:
 4. `selectedDepositRoute = VAULT`
 
 This is the clean recovery path: the responder no longer exposes an active restriction and the active report id has been cleared.
+That `activeReportId` observation comes from the optional helper surface, not the Core responder minimum.
 
 If you see `EXECUTED_STATE_MISMATCH` instead, execution history and responder state no longer line up cleanly. The script should not guess that recovery has already happened.
+
+## Step 8: Close the Report at the Registry Layer (`Resolved at registry layer`)
+
+This step is optional, but it now demonstrates that registry-side closure is distinct from protocol-local recovery.
+
+```bash
+forge script script/ResolveRegistrySignal.s.sol:ResolveRegistrySignal \
+  --rpc-url "$RPC_URL" \
+  --broadcast
+```
+
+Read again:
+
+```bash
+forge script script/ReadRiskSnapshot.s.sol:ReadRiskSnapshot \
+  --rpc-url "$RPC_URL"
+```
+
+Expected output:
+
+1. `registryStatusLabel = Resolved`
+2. `reasonCodeLabel = LOCAL_RECOVERY_WITH_HISTORY`
+3. `shouldSkipVault = false`
+4. `routerShouldSkipVault = false`
+
+This is the full split the draft cares about:
+
+1. responder truth says no live restriction remains;
+2. registry history still exposes a closed, machine-readable risk event.
 
 ## Expected Event Sequence
 
@@ -224,6 +266,7 @@ Typical event order:
 4. `SignalExecutionRecorded`
 5. `EmergencyActionExecuted`
 6. `LocalEmergencyResolved`
+7. optional `SignalResolved(..., Resolved, ...)`
 
 These events are PoC instrumentation. They do not imply that a final standard must require an identical event surface.
 

@@ -19,6 +19,10 @@ If this repository is used as the source for formal submission material, the min
 
 Only extract the interface fragments that are still intended to mirror the draft.
 If a PoC-only helper remains in an interface, document it explicitly rather than silently promoting it into Core.
+In the current PoC, helper and execution extras are already split out into:
+
+- `src/interfaces/IProtocolResponseExecutor.sol`
+- `src/interfaces/IProtocolResponseHelper.sol`
 
 ### Example responder implementation
 
@@ -61,6 +65,8 @@ These collectively prove the semantic split between:
 The following are useful in the PoC but should not be silently elevated into the ERC core:
 
 - `trustedRiskRegistry()` as the only trust model;
+- `IProtocolResponseHelper` as a mandatory surface;
+- `IProtocolResponseExecutor` as a mandatory surface;
 - `RiskStateLens`;
 - `RiskAwareConsumerLens`;
 - `MockAggregatorRouter`;
@@ -108,8 +114,9 @@ Recommended claims:
 3. `Confirmed` can exist while responder still reports no active restriction.
 4. responder restrictions become machine-consumable after asynchronous execution.
 5. consumer behavior follows responder truth rather than raw registry status.
-6. local recovery clears active restrictions without erasing historical risk context.
-7. replaying the same report after local recovery does not reactivate protection.
+6. registry-side `Resolved` remains distinct from protocol-local recovery.
+7. local recovery clears active restrictions without erasing historical risk context.
+8. replaying the same report after local recovery does not reactivate protection.
 
 That is already enough to support the draft's main semantic boundary.
 

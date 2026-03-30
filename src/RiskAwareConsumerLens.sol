@@ -63,12 +63,14 @@ contract RiskAwareConsumerLens {
             return result;
         }
 
-        if (hasPauseDepositRestriction && state.isEmergencyActive) {
+        if (hasPauseDepositRestriction) {
             result.shouldBlockNewDeposit = true;
             result.shouldWarn = true;
             result.shouldSkipVault = true;
             result.decisionLevel = LEVEL_BLOCK_NEW_DEPOSIT;
-            result.reasonCode = REASON_PAUSE_DEPOSIT_ACTIVE;
+            result.reasonCode = state.hasEmergencyStatusHelper && !state.isExecutionConsistent
+                ? REASON_EXECUTED_STATE_MISMATCH
+                : REASON_PAUSE_DEPOSIT_ACTIVE;
             return result;
         }
 
@@ -80,7 +82,10 @@ contract RiskAwareConsumerLens {
                 return result;
             }
 
-            if (!state.isEmergencyActive && state.activeReportId == bytes32(0) && state.restrictionIds.length == 0) {
+            if (
+                !state.hasEmergencyStatusHelper
+                    || (!state.isEmergencyActive && state.activeReportId == bytes32(0) && state.restrictionIds.length == 0)
+            ) {
                 result.decisionLevel = LEVEL_RECOVERED_HISTORY;
                 result.reasonCode = REASON_LOCAL_RECOVERY_WITH_HISTORY;
                 return result;
@@ -93,7 +98,10 @@ contract RiskAwareConsumerLens {
 
         if (state.registryStatus == IRiskRegistry.Status.Resolved && state.hasExecutionRecord) {
             result.shouldWarn = true;
-            if (!state.isEmergencyActive && state.activeReportId == bytes32(0) && state.restrictionIds.length == 0) {
+            if (
+                !state.hasEmergencyStatusHelper
+                    || (!state.isEmergencyActive && state.activeReportId == bytes32(0) && state.restrictionIds.length == 0)
+            ) {
                 result.decisionLevel = LEVEL_RECOVERED_HISTORY;
                 result.reasonCode = REASON_LOCAL_RECOVERY_WITH_HISTORY;
             } else {

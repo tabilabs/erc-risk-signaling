@@ -72,6 +72,7 @@ This layer explains what was reported and what was confirmed.
   - Tracks processed reports for replay protection.
   - Requires a `trustedRiskRegistry` for emergency execution.
   - Exposes both `getSupportedActions()` and `getActiveRestrictions()`.
+  - Separates core responder surface from optional execution and recovery helpers.
 
 This layer explains what restrictions are actually active right now.
 
@@ -157,17 +158,19 @@ This PoC intentionally keeps the router thin.
 The router does not reinterpret raw registry status and does not build its own restriction policy matrix. It consumes the output of `RiskAwareConsumerLens`, which is already derived from:
 
 1. registry history;
-2. responder truth;
-3. execution consistency checks.
+2. responder restriction truth;
+3. optional helper-based execution diagnostics.
 
-That separation is the whole point: consumers should read machine-usable state, not reverse engineer protocol-specific emergency logic on the fly.
+The blocking decision still follows the responder's active restriction set. Optional helper data only refines diagnostics such as local recovery versus helper-state mismatch.
 
 ## Test Coverage
 
 Current tests cover:
 
 - weak states that must not trigger live restrictions;
+- `Submitted` as an explicitly non-triggering state;
 - confirmed execution that pauses deposits while keeping exits open;
+- registry-side `Resolved` as a closure path distinct from local recovery;
 - trusted registry enforcement;
 - replay protection after local recovery;
 - router behavior before confirmation, after confirmation, after execution, and after recovery;

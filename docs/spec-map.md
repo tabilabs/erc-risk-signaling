@@ -37,15 +37,16 @@ The PoC mirrors the current draft on the following points:
 - responder is the machine-readable source of truth for current live restrictions;
 - `getSupportedActions()` is exposed separately from `getActiveRestrictions()`;
 - restrictions are modeled as a set, not a single boolean;
-- emergency execution is asynchronous.
+- optional emergency execution remains asynchronous.
 
 PoC-specific additions:
 
+- optional helper and execution surfaces are split out of the core responder interface;
 - `trustedRiskRegistry()`
 - `emergencyStatus()`
 - `resolveLocalEmergency(string reason)`
 
-These exist to make the trust-anchor model and local recovery path directly inspectable.
+These exist to make the trust-anchor model and local recovery path directly inspectable without pretending they are part of the minimum responder surface.
 
 ### Execution History
 
@@ -72,7 +73,8 @@ The current test suite proves the following draft-aligned claims:
 4. responder state, not raw registry state, controls whether deposits should be blocked.
 5. a trusted-registry model can exist without turning the registry into a governance control plane.
 6. replaying an already consumed report does not reactivate local emergency mode after recovery.
-7. a consumer can distinguish:
+7. registry-side `Resolved` can close history without collapsing back into an `Executed` status.
+8. a consumer can distinguish:
    - confirmed but not yet executed
    - active restriction
    - local recovery with retained history
@@ -87,6 +89,8 @@ These parts should be read as demo helpers, not as assertions about mandatory fi
 - `MockAggregatorRouter`
 - `RiskStateLens`
 - `RiskAwareConsumerLens`
+- `IProtocolResponseExecutor`
+- `IProtocolResponseHelper`
 - the exact `resultHash` encoding
 - the exact `trustedRiskRegistry()` trust-anchor model
 
@@ -96,12 +100,11 @@ They are useful because they let reviewers observe the separation between regist
 
 The PoC is intentionally narrow. It does not yet try to fully cover:
 
-1. registry-side `Resolved` as a separate closure path alongside local recovery;
-2. a richer `targetType` taxonomy beyond the single vault-focused demo path;
-3. structured evidence schemas;
-4. replacement or escalation economics;
-5. multiple action types beyond `PAUSE_DEPOSIT`;
-6. submission-safe attachment packaging for `assets/eip-####/`.
+1. a richer `targetType` taxonomy beyond the single vault-focused demo path;
+2. structured evidence schemas;
+3. replacement or escalation economics;
+4. multiple action types beyond `PAUSE_DEPOSIT`;
+5. submission-safe attachment packaging for `assets/eip-####/`.
 
 These are still valid follow-on tasks, but they are not required for the current PoC to demonstrate the core semantic split.
 

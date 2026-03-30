@@ -64,17 +64,27 @@ contract MockRiskRegistry is Ownable, IRiskRegistry {
             revert SignalNotFound(reportId);
         }
 
-        // State machine: Submitted can move into review or a terminal adjudication;
-        // UnderReview can only move forward into a terminal adjudication.
-        if (signal.status != Status.Submitted && signal.status != Status.UnderReview) {
+        // State machine:
+        // - Submitted can move into review or a terminal adjudication
+        // - UnderReview can move forward into a terminal adjudication
+        // - Confirmed can later close at the registry layer through Resolved
+        if (
+            signal.status != Status.Submitted && signal.status != Status.UnderReview
+                && signal.status != Status.Confirmed
+        ) {
             revert InvalidSourceStatus(signal.status);
         }
 
-        bool validTransition = signal.status == Status.Submitted
-            ? (finalStatus == Status.UnderReview || finalStatus == Status.Confirmed || finalStatus == Status.Rejected
-                    || finalStatus == Status.Expired || finalStatus == Status.Resolved)
-            : (finalStatus == Status.Confirmed || finalStatus == Status.Rejected || finalStatus == Status.Expired
-                    || finalStatus == Status.Resolved);
+        bool validTransition;
+        if (signal.status == Status.Submitted) {
+            validTransition = finalStatus == Status.UnderReview || finalStatus == Status.Confirmed
+                || finalStatus == Status.Rejected || finalStatus == Status.Expired || finalStatus == Status.Resolved;
+        } else if (signal.status == Status.UnderReview) {
+            validTransition = finalStatus == Status.Confirmed || finalStatus == Status.Rejected
+                || finalStatus == Status.Expired || finalStatus == Status.Resolved;
+        } else {
+            validTransition = finalStatus == Status.Resolved;
+        }
 
         if (!validTransition) {
             revert InvalidFinalStatus(finalStatus);

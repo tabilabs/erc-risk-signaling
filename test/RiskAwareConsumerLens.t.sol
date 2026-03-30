@@ -113,6 +113,32 @@ contract RiskAwareConsumerLensTest is Test {
         assertEq(decision.restrictionIds.length, 0);
     }
 
+    function testRiskAwareConsumerTreatsSubmittedAsObservableButNonBlocking() public {
+        vm.deal(whitehat, 1 ether);
+
+        vm.prank(whitehat);
+        bytes32 reportId = registry.raiseSignal{value: 0.1 ether}(
+            address(vault),
+            RiskResponseCodes.TARGET_TYPE_VAULT,
+            RiskResponseCodes.RISK_DEPEG,
+            3,
+            bytes32(0),
+            abi.encodePacked("evidence:submitted")
+        );
+
+        RiskAwareConsumerLens.Decision memory decision =
+            consumerLens.decision(address(registry), address(vault), reportId);
+
+        assertFalse(decision.shouldBlockNewDeposit);
+        assertTrue(decision.shouldAllowExit);
+        assertFalse(decision.shouldWarn);
+        assertFalse(decision.shouldSkipVault);
+        assertFalse(decision.isExecutionConsistent);
+        assertEq(decision.decisionLevel, consumerLens.LEVEL_NORMAL());
+        assertEq(decision.reasonCode, consumerLens.REASON_NONE());
+        assertEq(decision.restrictionIds.length, 0);
+    }
+
     function testRiskAwareConsumerTreatsUnderReviewAsObservableButNonBlocking() public {
         vm.deal(whitehat, 1 ether);
 
@@ -225,15 +251,45 @@ contract RiskAwareConsumerLensTest is Test {
         RiskAwareConsumerLens.Decision memory decision =
             consumerLens.decision(address(registry), address(mismatchResponder), reportId);
 
+        assertTrue(decision.shouldBlockNewDeposit);
+        assertTrue(decision.shouldAllowExit);
+        assertTrue(decision.shouldWarn);
+        assertTrue(decision.shouldSkipVault);
+        assertFalse(decision.isExecutionConsistent);
+        assertEq(decision.decisionLevel, consumerLens.LEVEL_BLOCK_NEW_DEPOSIT());
+        assertEq(decision.reasonCode, consumerLens.REASON_EXECUTED_STATE_MISMATCH());
+        assertEq(decision.restrictionIds.length, 1);
+        assertEq(decision.restrictionIds[0], RiskResponseCodes.RESTRICTION_PAUSE_DEPOSIT);
+    }
+
+    function testRiskAwareConsumerTreatsResolvedHistoryWithoutRestrictionsAsRecovered() public {
+        bytes32 reportId = _raiseAndConfirm(address(vault));
+        executor.trigger(address(vault), address(registry), reportId);
+
+        vm.prank(address(adjudicator));
+        registry.resolveSignal(
+            reportId,
+            IRiskRegistry.Status.Resolved,
+            IRiskRegistry.ResolutionMetadata({
+                adjudicator: address(adjudicator),
+                resolutionHash: keccak256("resolved:depeg-closed")
+            })
+        );
+
+        vm.prank(admin);
+        vault.resolveLocalEmergency("resolved at registry layer");
+
+        RiskAwareConsumerLens.Decision memory decision =
+            consumerLens.decision(address(registry), address(vault), reportId);
+
         assertFalse(decision.shouldBlockNewDeposit);
         assertTrue(decision.shouldAllowExit);
         assertTrue(decision.shouldWarn);
         assertFalse(decision.shouldSkipVault);
         assertFalse(decision.isExecutionConsistent);
-        assertEq(decision.decisionLevel, consumerLens.LEVEL_WARNING());
-        assertEq(decision.reasonCode, consumerLens.REASON_EXECUTED_STATE_MISMATCH());
-        assertEq(decision.restrictionIds.length, 1);
-        assertEq(decision.restrictionIds[0], RiskResponseCodes.RESTRICTION_PAUSE_DEPOSIT);
+        assertEq(decision.decisionLevel, consumerLens.LEVEL_RECOVERED_HISTORY());
+        assertEq(decision.reasonCode, consumerLens.REASON_LOCAL_RECOVERY_WITH_HISTORY());
+        assertEq(decision.restrictionIds.length, 0);
     }
 
     function testRiskAwareConsumerTreatsUntrustedRegistryAsConfirmedNotExecuted() public {

@@ -10,9 +10,11 @@ import {IERC165} from "@openzeppelin/contracts/utils/introspection/IERC165.sol";
 
 import {IRiskRegistry} from "./interfaces/IRiskRegistry.sol";
 import {IProtocolResponder} from "./interfaces/IProtocolResponder.sol";
+import {IProtocolResponseExecutor} from "./interfaces/IProtocolResponseExecutor.sol";
+import {IProtocolResponseHelper} from "./interfaces/IProtocolResponseHelper.sol";
 import {RiskResponseCodes} from "./libraries/RiskResponseCodes.sol";
 
-contract SafeVault4626 is ERC4626, Ownable, ERC165, IProtocolResponder {
+contract SafeVault4626 is ERC4626, Ownable, ERC165, IProtocolResponder, IProtocolResponseExecutor, IProtocolResponseHelper {
     mapping(bytes32 => bool) public processedReports;
 
     address public override trustedRiskRegistry;
@@ -31,7 +33,9 @@ contract SafeVault4626 is ERC4626, Ownable, ERC165, IProtocolResponder {
     {}
 
     function supportsInterface(bytes4 interfaceId) public view override(ERC165, IERC165) returns (bool) {
-        return interfaceId == type(IProtocolResponder).interfaceId || super.supportsInterface(interfaceId);
+        return interfaceId == type(IProtocolResponder).interfaceId
+            || interfaceId == type(IProtocolResponseExecutor).interfaceId
+            || interfaceId == type(IProtocolResponseHelper).interfaceId || super.supportsInterface(interfaceId);
     }
 
     function emergencyStatus() external view returns (bool isActive, bytes32 currentReportId) {

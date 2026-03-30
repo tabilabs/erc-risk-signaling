@@ -15,6 +15,7 @@ import {RiskStateLens} from "../src/RiskStateLens.sol";
 import {SafeVault4626} from "../src/SafeVault4626.sol";
 import {RaiseDepegSignal} from "../script/RaiseDepegSignal.s.sol";
 import {ReadRiskSnapshot} from "../script/ReadRiskSnapshot.s.sol";
+import {ResolveRegistrySignal} from "../script/ResolveRegistrySignal.s.sol";
 import {RunDepegScenario} from "../script/RunDepegScenario.s.sol";
 
 /// @dev Script guard-rail tests. RunDepegScenario guards are tested in a single
@@ -127,6 +128,15 @@ contract ScriptGuardRailsTest is Test {
         script.validateInputs(bytes32(uint256(1)), false, true);
         script.validateInputs(bytes32(uint256(1)), true, true);
         script.validateInputs(bytes32(uint256(1)), false, false);
+    }
+
+    function testResolveRegistrySignalGuardRails() public {
+        ResolveRegistrySignal script = new ResolveRegistrySignal();
+
+        vm.expectRevert(ResolveRegistrySignal.MissingReportId.selector);
+        script.validateInputs(bytes32(0));
+
+        script.validateInputs(bytes32(uint256(1)));
     }
 
     function _raiseAndConfirm(address target) internal returns (bytes32 reportId) {
