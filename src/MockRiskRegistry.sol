@@ -14,6 +14,7 @@ contract MockRiskRegistry is Ownable, IRiskRegistry {
     mapping(bytes32 => ExecutionRecord) private executions;
 
     error BondTooLow(uint256 provided, uint256 requiredBond);
+    error InvalidTarget(address target);
     error SignalNotFound(bytes32 reportId);
     error InvalidFinalStatus(Status status);
     error InvalidSourceStatus(Status status);
@@ -35,6 +36,9 @@ contract MockRiskRegistry is Ownable, IRiskRegistry {
     ) external payable returns (bytes32 reportId) {
         if (msg.value < BOND_FLOOR) {
             revert BondTooLow(msg.value, BOND_FLOOR);
+        }
+        if (target == address(0)) {
+            revert InvalidTarget(target);
         }
 
         reportId = keccak256(

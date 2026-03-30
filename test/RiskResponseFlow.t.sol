@@ -237,6 +237,21 @@ contract RiskResponseFlowTest is Test {
         );
     }
 
+    function testRaiseSignalRevertsWhenTargetIsZeroAddress() public {
+        vm.deal(whitehat, 1 ether);
+
+        vm.prank(whitehat);
+        vm.expectRevert(abi.encodeWithSelector(MockRiskRegistry.InvalidTarget.selector, address(0)));
+        registry.raiseSignal{value: 0.1 ether}(
+            address(0),
+            RiskResponseCodes.TARGET_TYPE_VAULT,
+            RiskResponseCodes.RISK_DEPEG,
+            3,
+            bytes32(0),
+            abi.encodePacked("evidence:zero-target")
+        );
+    }
+
     function testResolveSignalRevertsOnInvalidFinalStatus() public {
         MockRiskRegistry directRegistry = new MockRiskRegistry(0.1 ether, admin);
         vm.deal(whitehat, 1 ether);
