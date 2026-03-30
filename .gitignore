@@ -1,0 +1,11 @@
+cache/
+out/
+broadcast/
+coverage/
+.DS_Store
+.env
+.env.local
+.agents/
+.vscode/
+context-map/
+tmp/
